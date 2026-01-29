@@ -112,11 +112,15 @@ fun HotspotDeviceScreen() {
                         try {
                             val inet = InetAddress.getByName(ip)
                             if (inet.isReachable(timeoutMs)) {
+                                // attempt to resolve hostname via nslookup (falls back to Java reverse lookup)
                                 val host = try {
-                                    val hn = inet.hostName
-                                    if (hn != ip) hn else null
+                                    HotspotScanner.resolveHostname(ip, timeoutMs.toLong())
                                 } catch (_: Exception) {
-                                    null
+                                    // final fallback to inet.hostName if resolve fails
+                                    try {
+                                        val hn = inet.hostName
+                                        if (hn != ip) hn else null
+                                    } catch (_: Exception) { null }
                                 }
                                 // Use IP as mac placeholder so UI keys remain unique
                                 HotspotScanner.DeviceInfo(ip = ip, mac = ip, hostname = host)
@@ -132,9 +136,9 @@ fun HotspotDeviceScreen() {
             devices.addAll(results)
             // record session starts for devices we just discovered (using IP as mac placeholder)
             results.forEach { d -> SessionManager.recordSeen(d.mac) }
-            lastScannedAt = LocalTime.now().withNano(0).toString()
-        } catch (_: Exception) {
-            // ignore scan errors
+            lastScannedAt = java.time.LocalTime.now().withNano(0).toString()
+        } catch (e: Exception) {
+            // ignore
         } finally {
             isScanning = false
         }
