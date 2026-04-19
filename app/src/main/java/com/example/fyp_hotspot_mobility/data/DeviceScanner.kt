@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.InetAddress
+import java.net.NetworkInterface
 import java.util.Locale
 
 /**
@@ -25,7 +26,7 @@ object DeviceScanner {
         val file = File("/proc/net/arp")
         if (!file.exists() || !file.canRead()) return emptyList()
 
-        return file.readLines()
+        return file.readLines().drop(1) // skip header
             .mapNotNull { line ->
                 arpLineRegex.find(line)?.let { match ->
                     val ip = match.groupValues[1]
@@ -40,21 +41,40 @@ object DeviceScanner {
      * Scans connected devices and returns a list of [ConnectedDevice].
      * This is a best-effort scan; results depend on platform restrictions.
      */
-    suspend fun scanConnectedDevices(context: Context, timeoutMs: Int = 250): List<ConnectedDevice> {
+    suspend fun scanConnectedDevices(
+        context: Context,
+        timeoutMs: Int = 5000): List<ConnectedDevice> {
         return withContext(Dispatchers.IO) {
-            parseArp().mapNotNull { (ip, mac) ->
+            
+            val arpDevices = parseArp()
+            
+            val devicesToScan = if (arpDevices.isNotEmpty()) {
+                arpDevices
+            } else {
+            scanSubnet()
+            }
+
+            devicesToScan.mapNotNull { (ip, mac) ->
+
                 try {
                     val address = InetAddress.getByName(ip)
-                    val reachable = address.isReachable(timeoutMs)
+
+                    val reachable = try {
+                        val process = Runtime.getRuntime().exec("/system/bin/ping -c 1 -W 1 $ip")
+                        process.waitFor() == 0
+                    } catch (_: Exception) {
+                        false
+                    }
+
                     if (!reachable) return@mapNotNull null
 
                     val hostname = try {
-                        val name = address.canonicalHostName
+                        val name = address.hostName
                         if (name.isNullOrBlank() || name == ip) "Unknown Device" else name
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
                         "Unknown Device"
                     }
-
+            
                     ConnectedDevice(
                         id = mac,
                         ipAddress = ip,
@@ -66,38 +86,73 @@ object DeviceScanner {
                     )
                 } catch (_: Exception) {
                     null
+                
                 }
             }
         }
+    }
+
+    // fallback scan function
+    Private fun scanSubnet(): List<Pair<String, String>> {
+        val devices = mutableListOf<Pair<String, String>>()
+        for (i in 1..254){
+            val ip = "192.168.43.$i"
+
+            val reachable = try {
+                val process = Runtime.getRuntime().exec("/system/bin/ping -c 1 -W 1 $ip")
+                process.waitFor() == 0 
+            } catch (e: Exception) {
+                false
+            }
+            if (reachable) {
+                devices.add(ip to "unknown-mac")
+            }
+        }
+        return devices 
+    }
+
+    // Try to obtain the local IP address of a connected device if proc/net/arp fails  
+    fun getlocalip(): String? {
+        val interfaces = NetworkInterface.getNetworkInterfaces()
+        for (intf in interfaces) {
+            for (addr in intf.inetAddresses) {
+                if (!addr.isLoopbackAddress && addr.hostAddress.indexOf(':') < 0) {
+                    return addr.hostAddress
+                }
+            }
+        }
+        return null
     }
 
     /**
      * Try to obtain the current hotspot SSID.
      */
     fun getHotspotSsid(context: Context): String? {
-        return try {
-            val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
-            val method = wifiManager?.javaClass?.getMethod("getWifiApConfiguration")
-            val config = method?.invoke(wifiManager)?.toString()
-            config?.let {
-                // This will contain SSID=... in toString for older APIs
-                Regex("ssid=(.*?)(,|$)").find(it)?.groupValues?.get(1)
-            }
-        } catch (_: Exception) {
-            null
+    return try {
+        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+        val method = wifiManager?.javaClass?.getMethod("getWifiApConfiguration")
+        val config = method?.invoke(wifiManager)
+        
+        // Use safe call and let to handle nullability
+        config?.toString()?.let { configString ->
+            val regex = Regex("ssid=(.*?)(?:,|\$)", RegexOption.IGNORE_CASE)
+            regex.find(configString)?.groupValues?.getOrNull(1)
         }
+    } catch (e: Exception) {
+        e.printStackTrace() // Log the error for debugging
+        null
     }
+}
 
-    /**
-     * Best-effort hotspot enabled check.
-     */
-    fun isHotspotEnabled(context: Context): Boolean {
-        return try {
-            val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
-            val method = wifiManager?.javaClass?.getMethod("isWifiApEnabled")
-            (method?.invoke(wifiManager) as? Boolean) == true
-        } catch (_: Exception) {
-            false
-        }
+// checking if hotspot is enabled
+
+fun isHotspotEnabled(context: Context): Boolean {
+    return try {
+        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+        val method = wifiManager?.javaClass?.getMethod("isWifiApEnabled")
+        method?.invoke(wifiManager) as? Boolean ?: false
+    } catch (e: Exception) {
+        false
     }
+}
 }

@@ -1,9 +1,8 @@
 package com.example.fyp_hotspot_mobility.viewmodel
 
+// import package com.example.fyp_hotspot_mobility.data.DeviceScanner
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewModelScope
 import com.example.fyp_hotspot_mobility.data.DeviceRepository
 import com.example.fyp_hotspot_mobility.data.DeviceScanner
@@ -12,6 +11,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import android.content.Context
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.net.InetAddress
 
 /**
  * Responsible for scanning devices, tracking blocked state and bandwidth caps.
@@ -23,13 +26,11 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
     private val _uiState = MutableStateFlow(HotspotUiState())
     val uiState: StateFlow<HotspotUiState> = _uiState.asStateFlow()
 
-    fun startAutoRefresh(lifecycle: Lifecycle) {
+    fun startAutoRefresh() {
         viewModelScope.launch {
-            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 while (isActive) {
                     scanDevices()
                     delay(5_000)
-                }
             }
         }
     }
@@ -38,22 +39,26 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
      * Performs a network scan and refreshes the device list.
      */
     fun scanDevices() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isScanning = true) }
-            val ssid = DeviceScanner.getHotspotSsid(getApplication())
-            val hotspotEnabled = DeviceScanner.isHotspotEnabled(getApplication())
+    viewModelScope.launch {
+        _uiState.update { it.copy(isScanning = true) }
 
-            val rawDevices = try {
+        try {
+            //  Get the raw data on the IO thread
+            val rawDevices = withContext(Dispatchers.IO) {
                 DeviceScanner.scanConnectedDevices(getApplication())
-            } catch (_: Exception) {
-                emptyList<ConnectedDevice>()
             }
 
+            // 2. Get blocked IDs from the repository
             val blockedIds = repository.blockedDeviceIds.value
 
+            //  Enrich the data 
             val enriched = rawDevices.map { device ->
-                val nickname = repository.getNickname(device.id).takeUnless { it.isNullOrBlank() } ?: device.hostname
-                val randomSpeed = (0..300).random().toFloat() // simulated KB/s
+                val nickname = repository.getNickname(device.id).takeUnless { it.isNullOrBlank() } 
+                    ?: device.hostname
+                
+                val randomSpeed = (0..300).random().toFloat()
+                
+                // Use the 'device' object here while it's in scope
                 device.copy(
                     hostname = nickname,
                     isBlocked = blockedIds.contains(device.id),
@@ -63,17 +68,19 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
                 )
             }
 
-            _uiState.update {
+            // Update the UI state with the enriched list
+            _uiState.update { 
                 it.copy(
-                    ssid = ssid,
-                    isHotspotEnabled = hotspotEnabled,
-                    devices = enriched,
-                    isScanning = false
-                )
+                    isScanning = false,
+                    devices = enriched 
+                ) 
             }
+
+        } catch (e: Exception) {
+            _uiState.update { it.copy(isScanning = false) }
         }
     }
-
+}
     fun blockDevice(id: String) {
         repository.blockDevice(id)
         updateDeviceState(id) { it.copy(isBlocked = true) }
