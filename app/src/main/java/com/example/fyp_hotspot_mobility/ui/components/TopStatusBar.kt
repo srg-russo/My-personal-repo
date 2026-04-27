@@ -3,6 +3,7 @@ package com.example.fyp_hotspot_mobility.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -13,6 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -24,13 +26,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TopStatusBar(
     ssid: String?,
     isHotspotEnabled: Boolean,
     connectedCount: Int,
     isScanning: Boolean,
-    onScanRequested: () -> Unit
+    hasScannedAtLeastOnce: Boolean,
+    onScanRequested: () -> Unit,
 ) {
     TopAppBar(
         title = {
@@ -62,7 +66,7 @@ fun TopStatusBar(
                         .padding(end = 12.dp),
                     strokeWidth = 2.dp
                 )
-            } else {
+            } else if (hasScannedAtLeastOnce) {
                 IconButton(onClick = onScanRequested) {
                     Icon(imageVector = Icons.Rounded.Refresh, contentDescription = "Rescan")
                 }

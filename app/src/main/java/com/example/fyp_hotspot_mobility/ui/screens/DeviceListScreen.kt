@@ -21,13 +21,14 @@ import com.example.fyp_hotspot_mobility.ui.components.DeviceCard
 fun DeviceListScreen(
     devices: List<ConnectedDevice>,
     isScanning: Boolean,
+    hasScannedAtLeastOnce: Boolean,
     onRefresh: () -> Unit,
-    onDeviceSelected: (ConnectedDevice) -> Unit
+    onDeviceSelected: (ConnectedDevice) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        AnimatedVisibility(visible = devices.isEmpty() && !isScanning) {
+        AnimatedVisibility(visible = devices.isEmpty() && hasScannedAtLeastOnce && !isScanning) {
             Text(
-                text = "No devices found. Tap refresh to scan.",
+                text = "No devices found. Tap refresh to scan for connected devices.",
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
@@ -35,7 +36,11 @@ fun DeviceListScreen(
             )
         }
 
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
             items(devices, key = { it.id }) { device ->
                 DeviceCard(
                     device = device,
@@ -47,7 +52,7 @@ fun DeviceListScreen(
             }
         }
 
-        if (!isScanning) {
+        if (!isScanning && !hasScannedAtLeastOnce) {
             Button(
                 onClick = onRefresh,
                 modifier = Modifier
