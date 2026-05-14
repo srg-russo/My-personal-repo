@@ -5,7 +5,9 @@ import android.net.wifi.WifiManager
 import android.os.Build
 import com.example.fyp_hotspot_mobility.model.ConnectedDevice
 import kotlinx.coroutines.*
+import java.io.BufferedReader
 import java.io.File
+import java.io.InputStreamReader
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.NetworkInterface
@@ -45,15 +47,12 @@ object DeviceScanner {
     private fun getHotspotLocalIp(): String? {
         try {
             val interfaces = NetworkInterface.getNetworkInterfaces().toList()
-            // Android Hotspot interfaces are usually named 'ap0', 'wlan1', or 'wlan0'
-            // We look for interfaces that are UP and not loopback
             for (intf in interfaces) {
                 if (!intf.isUp || intf.isLoopback) continue
                 
                 for (addr in intf.inetAddresses) {
                     val host = addr.hostAddress
                     if (host != null && host.contains(".") && !addr.isLinkLocalAddress) {
-                        // Common hotspot IPs start with 192.168.
                         if (host.startsWith("192.168.")) return host
                     }
                 }
@@ -62,16 +61,45 @@ object DeviceScanner {
         return null
     }
 
+    /**
+     * Resolves hostname using multiple methods including DNS and system commands.
+     */
+    private fun resolveHostname(ip: String): String? {
+        // Method 1: Try system 'nslookup' command (simulating user request)
+        try {
+            val process = Runtime.getRuntime().exec("nslookup $ip")
+            val reader = BufferedReader(InputStreamReader(process.inputStream))
+            var line: String?
+            while (reader.readLine().also { line = it } != null) {
+                // nslookup output usually contains "name = hostname"
+                if (line?.contains("name =", ignoreCase = true) == true) {
+                    return line?.substringAfter("name =")?.trim()?.removeSuffix(".")
+                }
+            }
+        } catch (e: Exception) { }
+
+        // Method 2: Java's built-in reverse DNS lookup
+        try {
+            val address = InetAddress.getByName(ip)
+            val name = address.canonicalHostName
+            if (!name.isNullOrBlank() && name != ip) return name
+            
+            val hostName = address.hostName
+            if (!hostName.isNullOrBlank() && hostName != ip) return hostName
+        } catch (e: Exception) { }
+
+        return null
+    }
+
     suspend fun scanConnectedDevices(
         context: Context
     ): List<ConnectedDevice> = withContext(Dispatchers.IO) {
-        // Fallback to most common default if detection fails
         val localIp = getHotspotLocalIp() ?: "192.168.43.1"
         val subnetPrefix = localIp.substringBeforeLast(".") + "."
         
         val arpMap = parseArp().toMap()
         
-        // Parallel scan
+        // Parallel scan for reachable IPs
         (1..254).map { i ->
             async {
                 val ip = subnetPrefix + i
@@ -80,7 +108,6 @@ object DeviceScanner {
                 try {
                     val address = InetAddress.getByName(ip)
                     
-                    // Method 1: Ping
                     var isReachable = try {
                         val process = Runtime.getRuntime().exec("/system/bin/ping -c 1 -W 1 $ip")
                         process.waitFor() == 0
@@ -88,13 +115,11 @@ object DeviceScanner {
                         false
                     }
 
-                    // Method 2: isReachable
                     if (!isReachable) {
                         isReachable = address.isReachable(300)
                     }
 
-                    // Method 3: TCP Scan (Common ports for Laptops/Windows)
-                    // Windows often blocks ICMP (ping) but might have these open
+                    // Scan common laptop ports if ping fails
                     if (!isReachable) {
                         val ports = intArrayOf(135, 139, 445, 80, 443)
                         for (port in ports) {
@@ -107,21 +132,15 @@ object DeviceScanner {
 
                     if (isReachable) {
                         val mac = arpMap[ip] ?: "unknown-mac"
-                        val hostname = try {
-                            val name = address.hostName // Try faster resolution first
-                            if (name.isNullOrBlank() || name == ip) "Device at .$i" else name
-                        } catch (e: Exception) {
-                            "Device at .$i"
-                        }
+                        val hostname = resolveHostname(ip) ?: "Device at .$i"
 
                         ConnectedDevice(
                             id = if (mac == "unknown-mac") ip else mac,
                             ipAddress = ip,
                             hostname = hostname,
                             isBlocked = false,
-                            downloadSpeed = 0f,
-                            uploadSpeed = 0f,
-                            bandwidthLimitKbps = null
+                            dataLimitMb = null,
+                            usageMb = 0f
                         )
                     } else null
                 } catch (_: Exception) {

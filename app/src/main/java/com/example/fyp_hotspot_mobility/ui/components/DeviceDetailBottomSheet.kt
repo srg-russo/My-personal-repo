@@ -1,4 +1,3 @@
-
 package com.example.fyp_hotspot_mobility.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
@@ -11,7 +10,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -33,15 +33,15 @@ fun DeviceDetailBottomSheet(
     device: ConnectedDevice,
     onDismiss: () -> Unit,
     onNicknameChanged: (String) -> Unit,
-    onBandwidthLimitChanged: (Int?) -> Unit,
+    onDataLimitChanged: (Int?) -> Unit,
     onBlockToggle: () -> Unit,
 ) {
     var nickname by remember { mutableStateOf(device.hostname) }
-    var limitKbps by remember { mutableStateOf(device.bandwidthLimitKbps ?: 0) }
+    var limitMb by remember { mutableStateOf(device.dataLimitMb ?: 0) }
 
     LaunchedEffect(device.id) {
         nickname = device.hostname
-        limitKbps = device.bandwidthLimitKbps ?: 0
+        limitMb = device.dataLimitMb ?: 0
     }
 
     Column(
@@ -58,45 +58,47 @@ fun DeviceDetailBottomSheet(
             modifier = Modifier.fillMaxWidth()
         )
 
-        Divider()
+        HorizontalDivider()
 
         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
             Column {
-                Text("IP Address", style = androidx.compose.material3.MaterialTheme.typography.labelMedium)
-                Text(device.ipAddress, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
+                Text("IP Address", style = MaterialTheme.typography.labelMedium)
+                Text(device.ipAddress, style = MaterialTheme.typography.bodyMedium)
             }
             Column {
-                Text("MAC", style = androidx.compose.material3.MaterialTheme.typography.labelMedium)
-                Text(device.id, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
+                Text("MAC", style = MaterialTheme.typography.labelMedium)
+                Text(device.id, style = MaterialTheme.typography.bodyMedium)
             }
         }
 
-        Divider()
-
-        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-            Column {
-                Text("Download", style = androidx.compose.material3.MaterialTheme.typography.labelMedium)
-                Text("${"%.1f".format(device.downloadSpeed)} KB/s", style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
-            }
-            Column {
-                Text("Upload", style = androidx.compose.material3.MaterialTheme.typography.labelMedium)
-                Text("${"%.1f".format(device.uploadSpeed)} KB/s", style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
-            }
-        }
-
-        Divider()
+        HorizontalDivider()
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Bandwidth cap (Kbps)", style = androidx.compose.material3.MaterialTheme.typography.labelMedium)
+            Text("Usage Status", style = MaterialTheme.typography.labelMedium)
+            Text(
+                text = "${"%.2f".format(device.usageMb)} MB used",
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (device.dataLimitMb != null && device.usageMb > device.dataLimitMb) 
+                    MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+            )
+        }
+
+        HorizontalDivider()
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Data Usage Limit (MB)", style = MaterialTheme.typography.labelMedium)
             Slider(
-                value = limitKbps.toFloat(),
-                onValueChange = { limitKbps = it.toInt(); onBandwidthLimitChanged(if (it.toInt() == 0) null else it.toInt()) },
-                valueRange = 0f..10_000f,
+                value = limitMb.toFloat(),
+                onValueChange = { 
+                    limitMb = it.toInt()
+                    onDataLimitChanged(if (it.toInt() == 0) null else it.toInt()) 
+                },
+                valueRange = 0f..500f,
                 steps = 10
             )
             Text(
-                text = if (limitKbps <= 0) "Unlimited" else "${limitKbps} Kbps",
-                style = androidx.compose.material3.MaterialTheme.typography.bodyMedium
+                text = if (limitMb <= 0) "No limit" else "$limitMb MB",
+                style = MaterialTheme.typography.bodyMedium
             )
         }
 

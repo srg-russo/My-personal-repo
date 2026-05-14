@@ -35,7 +35,6 @@ fun BandwidthScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 6.dp),
-                showBandwidth = true,
                 onClick = { onDeviceSelected(device) }
             )
         }

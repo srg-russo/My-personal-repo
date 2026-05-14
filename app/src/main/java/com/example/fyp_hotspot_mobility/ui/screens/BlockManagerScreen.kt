@@ -9,9 +9,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -26,51 +27,53 @@ fun BlockManagerScreen(
     onUnblock: (String) -> Unit,
     onDeviceSelected: (ConnectedDevice) -> Unit
 ) {
-    val connected = devices.filter { !it.isBlocked }
-    val blocked = devices.filter { it.isBlocked }
+    val unblockedDevices = devices.filter { !it.isBlocked }
+    val blockedDevices = devices.filter { it.isBlocked }
 
     LazyColumn(modifier = Modifier.fillMaxWidth()) {
-        item { SectionHeader(title = "Connected") }
+        item { SectionHeader(title = "Connected & Unblocked") }
 
-        if (connected.isEmpty()) {
+        if (unblockedDevices.isEmpty()) {
             item {
                 Text(
-                    text = "No connected devices.",
+                    text = "No unblocked devices connected.",
                     modifier = Modifier.padding(16.dp),
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
         } else {
-            itemsIndexed(connected) { _, device ->
+            itemsIndexed(unblockedDevices) { index, device ->
                 DeviceRowWithAction(
                     device = device,
                     buttonText = "Block",
-                    buttonColors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    buttonColors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     onButtonClick = { onBlock(device.id) },
                     onClick = { onDeviceSelected(device) }
                 )
+                if (index < unblockedDevices.lastIndex) HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
             }
         }
 
-        item { SectionHeader(title = "Blocked") }
+        item { SectionHeader(title = "Blocked Devices") }
 
-        if (blocked.isEmpty()) {
+        if (blockedDevices.isEmpty()) {
             item {
                 Text(
-                    text = "No blocked devices.",
+                    text = "No blocked devices currently connected.",
                     modifier = Modifier.padding(16.dp),
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
         } else {
-            itemsIndexed(blocked) { _, device ->
+            itemsIndexed(blockedDevices) { index, device ->
                 DeviceRowWithAction(
                     device = device,
                     buttonText = "Unblock",
-                    buttonColors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+                    buttonColors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     onButtonClick = { onUnblock(device.id) },
                     onClick = { onDeviceSelected(device) }
                 )
+                if (index < blockedDevices.lastIndex) HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
             }
         }
     }
@@ -99,17 +102,30 @@ private fun DeviceRowWithAction(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier
-            .weight(1f)
-            .clickable { onClick() }) {
-            Text(text = device.hostname.ifBlank { "Unknown Device" }, style = MaterialTheme.typography.titleMedium)
-            Text(text = device.ipAddress, style = MaterialTheme.typography.bodySmall)
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .clickable { onClick() }
+        ) {
+            Text(
+                text = device.hostname.ifBlank { "Unknown Device" },
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = device.ipAddress,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
-        OutlinedButton(onClick = onButtonClick, colors = buttonColors) {
+        
+        Button(
+            onClick = onButtonClick,
+            colors = buttonColors,
+            modifier = Modifier.padding(start = 8.dp)
+        ) {
             Text(buttonText)
         }
     }

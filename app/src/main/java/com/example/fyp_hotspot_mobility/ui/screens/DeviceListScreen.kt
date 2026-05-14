@@ -59,7 +59,7 @@ fun DeviceListScreen(
                     .fillMaxWidth()
                     .padding(16.dp)
             ) {
-                Text("Scan")
+                Text("Scan for connected devices")
             }
         }
     }

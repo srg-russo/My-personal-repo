@@ -44,14 +44,27 @@ class DeviceRepository(context: Context) {
         prefs.edit().putString("nickname_$deviceId", nickname).apply()
     }
 
-    fun getBandwidthLimit(deviceId: String): Int? {
-        return prefs.getInt("limit_${deviceId}", -1).let { if (it < 0) null else it }
+    fun getDataLimit(deviceId: String): Int? {
+        return prefs.getInt("data_limit_${deviceId}", -1).let { if (it < 0) null else it }
     }
 
-    fun setBandwidthLimit(deviceId: String, limitKbps: Int?) {
+    fun setDataLimit(deviceId: String, limitMb: Int?) {
         prefs.edit().apply {
-            if (limitKbps == null) remove("limit_${deviceId}")
-            else putInt("limit_${deviceId}", limitKbps)
+            if (limitMb == null) remove("data_limit_${deviceId}")
+            else putInt("data_limit_${deviceId}", limitMb)
         }.apply()
+    }
+
+    fun getUsage(deviceId: String): Float {
+        return prefs.getFloat("usage_${deviceId}", 0f)
+    }
+
+    fun addUsage(deviceId: String, amountMb: Float) {
+        val current = getUsage(deviceId)
+        prefs.edit().putFloat("usage_${deviceId}", current + amountMb).apply()
+    }
+
+    fun resetUsage(deviceId: String) {
+        prefs.edit().remove("usage_${deviceId}").apply()
     }
 }

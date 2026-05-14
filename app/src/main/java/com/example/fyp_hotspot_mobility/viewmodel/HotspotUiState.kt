@@ -11,6 +11,7 @@ data class HotspotUiState(
     val isScanning: Boolean = false,
     val devices: List<ConnectedDevice> = emptyList(),
     val hasScannedAtLeastOnce: Boolean = false,
+    val limitExceededAlert: String? = null
 ) {
     val connectedCount: Int get() = devices.count { !it.isBlocked }
 }

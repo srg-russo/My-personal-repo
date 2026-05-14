@@ -133,7 +133,7 @@ fun HotspotManagerApp(
                     device = device,
                     onDismiss = onDismissSheet,
                     onNicknameChanged = { viewModel.updateDeviceNickname(device.id, it) },
-                    onBandwidthLimitChanged = { viewModel.setBandwidthLimit(device.id, it) },
+                    onDataLimitChanged = { viewModel.setDataLimit(device.id, it) },
                     onBlockToggle = {
                         if (device.isBlocked) viewModel.unblockDevice(device.id)
                         else viewModel.blockDevice(device.id)
@@ -142,5 +142,19 @@ fun HotspotManagerApp(
                 )
             }
         }
+    }
+
+    // Alert for exceeded limits
+    uiState.limitExceededAlert?.let { alertMessage ->
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissAlert() },
+            title = { Text("Bandwidth Limit Exceeded") },
+            text = { Text(alertMessage) },
+            confirmButton = {
+                TextButton(onClick = { viewModel.dismissAlert() }) {
+                    Text("OK")
+                }
+            }
+        )
     }
 }

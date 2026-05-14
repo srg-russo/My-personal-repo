@@ -64,16 +64,27 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
                     val nickname = repository.getNickname(device.id).takeUnless { it.isNullOrBlank() } 
                         ?: device.hostname
                     
-                    val randomSpeed = (0..300).random().toFloat()
+                    // Simulate some usage for demo purposes
+                    repository.addUsage(device.id, (0..5).random().toFloat())
+                    
+                    val limit = repository.getDataLimit(device.id)
+                    val usage = repository.getUsage(device.id)
                     
                     device.copy(
                         hostname = nickname,
                         isBlocked = blockedIds.contains(device.id),
-                        bandwidthLimitKbps = repository.getBandwidthLimit(device.id),
-                        downloadSpeed = randomSpeed,
-                        uploadSpeed = (0..120).random().toFloat()
+                        dataLimitMb = limit,
+                        usageMb = usage
                     )
                 }
+
+                // Check for limits exceeded
+                val exceededNames = enriched.filter { it.dataLimitMb != null && it.usageMb > it.dataLimitMb }
+                    .joinToString(", ") { it.hostname }
+                
+                val alert = if (exceededNames.isNotEmpty()) {
+                    "Data limit exceeded for: $exceededNames"
+                } else null
 
                 // 4. Update the UI state
                 _uiState.update { 
@@ -82,7 +93,8 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
                         ssid = currentSsid,
                         isHotspotEnabled = currentIsEnabled,
                         devices = enriched,
-                        hasScannedAtLeastOnce = true
+                        hasScannedAtLeastOnce = true,
+                        limitExceededAlert = alert
                     ) 
                 }
 
@@ -104,9 +116,15 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
         updateDeviceState(id) { it.copy(isBlocked = false) }
     }
 
-    fun setBandwidthLimit(id: String, limitKbps: Int?) {
-        repository.setBandwidthLimit(id, limitKbps)
-        updateDeviceState(id) { it.copy(bandwidthLimitKbps = limitKbps) }
+    fun setDataLimit(id: String, limitMb: Int?) {
+        repository.setDataLimit(id, limitMb)
+        updateDeviceState(id) { it.copy(dataLimitMb = limitMb) }
+        
+        // Check if this new limit is already exceeded
+        val device = _uiState.value.devices.find { it.id == id }
+        if (device != null && limitMb != null && device.usageMb > limitMb) {
+            _uiState.update { it.copy(limitExceededAlert = "Data limit exceeded for: ${device.hostname}") }
+        }
     }
 
     fun updateDeviceNickname(id: String, name: String) {
@@ -114,14 +132,13 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
         updateDeviceState(id) { it.copy(hostname = name) }
     }
 
+    fun dismissAlert() {
+        _uiState.update { it.copy(limitExceededAlert = null) }
+    }
+
     private fun updateDeviceState(id: String, transform: (ConnectedDevice) -> ConnectedDevice) {
         _uiState.update { state ->
             state.copy(devices = state.devices.map { if (it.id == id) transform(it) else it })
         }
-    }
-
-    // Unused but kept for structure if needed later
-    fun startAutoRefresh(lifecycle: androidx.lifecycle.Lifecycle) {
-        // Implementation removed as requested to keep scan manual
     }
 }

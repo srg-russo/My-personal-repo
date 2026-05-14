@@ -8,7 +8,6 @@ data class ConnectedDevice(
     val ipAddress: String,
     val hostname: String,
     val isBlocked: Boolean,
-    val downloadSpeed: Float, // KB/s
-    val uploadSpeed: Float,   // KB/s
-    val bandwidthLimitKbps: Int? // null = unlimited
+    val dataLimitMb: Int?,    // null = unlimited
+    val usageMb: Float = 0f
 )
