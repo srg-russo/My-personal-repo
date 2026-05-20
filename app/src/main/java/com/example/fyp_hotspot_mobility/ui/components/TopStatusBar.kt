@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,6 +36,8 @@ fun TopStatusBar(
     isScanning: Boolean,
     hasScannedAtLeastOnce: Boolean,
     onScanRequested: () -> Unit,
+    showRefreshButton: Boolean = true,
+    totalBandwidth: Float? = null,
 ) {
     TopAppBar(
         title = {
@@ -48,27 +51,44 @@ fun TopStatusBar(
                 Spacer(modifier = Modifier.width(10.dp))
                 Column {
                     Text(
-                        text = ssid.orEmpty().ifBlank { "Hotspot" },
+                        text = ssid.orEmpty().ifBlank { "My Hotspot" },
                         style = MaterialTheme.typography.titleMedium
                     )
-                    Text(
-                        text = "$connectedCount connected",
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "$connectedCount connected",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        if (totalBandwidth != null) {
+                            Text(
+                                text = " • ",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "Total: ${"%.1f".format(totalBandwidth)} MB",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                 }
             }
         },
         actions = {
-            if (isScanning) {
-                CircularProgressIndicator(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .padding(end = 12.dp),
-                    strokeWidth = 2.dp
-                )
-            } else if (hasScannedAtLeastOnce) {
-                IconButton(onClick = onScanRequested) {
-                    Icon(imageVector = Icons.Rounded.Refresh, contentDescription = "Rescan")
+            if (showRefreshButton) {
+                if (isScanning) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .padding(end = 12.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else if (hasScannedAtLeastOnce) {
+                    IconButton(onClick = onScanRequested) {
+                        Icon(imageVector = Icons.Rounded.Refresh, contentDescription = "Rescan")
+                    }
                 }
             }
         }

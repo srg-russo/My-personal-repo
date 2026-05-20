@@ -5,9 +5,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/**
- * Simple persistence layer for blocked devices, nicknames, and bandwidth caps.
- */
+// A persistence layer for blocked devices, nicknames, and bandwidth caps.
+
 class DeviceRepository(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("hotspot_manager_prefs", Context.MODE_PRIVATE)
 

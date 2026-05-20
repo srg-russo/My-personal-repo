@@ -5,7 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -31,12 +33,12 @@ fun BlockManagerScreen(
     val blockedDevices = devices.filter { it.isBlocked }
 
     LazyColumn(modifier = Modifier.fillMaxWidth()) {
-        item { SectionHeader(title = "Connected & Unblocked") }
+        item { SectionHeader(title = "Active Devices") }
 
         if (unblockedDevices.isEmpty()) {
             item {
                 Text(
-                    text = "No unblocked devices connected.",
+                    text = "No active devices connected.",
                     modifier = Modifier.padding(16.dp),
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -54,12 +56,15 @@ fun BlockManagerScreen(
             }
         }
 
-        item { SectionHeader(title = "Blocked Devices") }
+        item { 
+            Spacer(modifier = Modifier.height(48.dp))
+            SectionHeader(title = "Blocked Devices") 
+        }
 
         if (blockedDevices.isEmpty()) {
             item {
                 Text(
-                    text = "No blocked devices currently connected.",
+                    text = "No blocked devices.",
                     modifier = Modifier.padding(16.dp),
                     style = MaterialTheme.typography.bodyMedium
                 )

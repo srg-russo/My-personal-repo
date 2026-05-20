@@ -46,6 +46,9 @@ fun HotspotManagerApp(
         selectedDevice = null
     }
 
+    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    val totalUsage = uiState.devices.sumOf { it.usageMb.toDouble() }.toFloat()
+
     LaunchedEffect(uiState.devices) {
         selectedDevice?.let { selected ->
             selectedDevice = uiState.devices.find { it.id == selected.id }
@@ -60,7 +63,9 @@ fun HotspotManagerApp(
                 connectedCount = uiState.connectedCount,
                 isScanning = uiState.isScanning,
                 hasScannedAtLeastOnce = uiState.hasScannedAtLeastOnce,
-                onScanRequested = viewModel::scanDevices
+                onScanRequested = viewModel::scanDevices,
+                showRefreshButton = currentRoute == HotspotTab.Devices.route,
+                totalBandwidth = if (currentRoute == HotspotTab.Bandwidth.route) totalUsage else null
             )
         },
         bottomBar = {
@@ -134,11 +139,7 @@ fun HotspotManagerApp(
                     onDismiss = onDismissSheet,
                     onNicknameChanged = { viewModel.updateDeviceNickname(device.id, it) },
                     onDataLimitChanged = { viewModel.setDataLimit(device.id, it) },
-                    onBlockToggle = {
-                        if (device.isBlocked) viewModel.unblockDevice(device.id)
-                        else viewModel.blockDevice(device.id)
-                        onDismissSheet()
-                    },
+                    showLimitEditor = currentRoute == HotspotTab.Bandwidth.route
                 )
             }
         }

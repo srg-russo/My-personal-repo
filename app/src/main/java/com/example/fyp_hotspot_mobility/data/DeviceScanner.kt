@@ -47,13 +47,26 @@ object DeviceScanner {
     private fun getHotspotLocalIp(): String? {
         try {
             val interfaces = NetworkInterface.getNetworkInterfaces().toList()
-            for (intf in interfaces) {
+            // Prioritize common hotspot interface names
+            val hotspotInterfaces = interfaces.filter { 
+                it.name.contains("ap", true) || 
+                it.name.contains("wlan1", true) || 
+                it.name.contains("softap", true) ||
+                it.name.contains("bridge", true)
+            }
+            
+            val sortedInterfaces = hotspotInterfaces + (interfaces - hotspotInterfaces.toSet())
+
+            for (intf in sortedInterfaces) {
                 if (!intf.isUp || intf.isLoopback) continue
                 
                 for (addr in intf.inetAddresses) {
                     val host = addr.hostAddress
                     if (host != null && host.contains(".") && !addr.isLinkLocalAddress) {
-                        if (host.startsWith("192.168.")) return host
+                        // Common hotspot subnets
+                        if (host.startsWith("192.168.") || 
+                            host.startsWith("172.") || 
+                            host.startsWith("10.")) return host
                     }
                 }
             }
@@ -116,14 +129,15 @@ object DeviceScanner {
                     }
 
                     if (!isReachable) {
-                        isReachable = address.isReachable(300)
+                        isReachable = address.isReachable(500) // Increased timeout
                     }
 
-                    // Scan common laptop ports if ping fails
+                    // Scan common ports if ping fails. 
+                    // Added 62078 (iPhone), 8008/8009 (Google Cast), 5000 (Synology/others)
                     if (!isReachable) {
-                        val ports = intArrayOf(135, 139, 445, 80, 443)
+                        val ports = intArrayOf(135, 139, 445, 80, 443, 62078, 8008, 8009, 5000)
                         for (port in ports) {
-                            if (isPortOpen(ip, port, 100)) {
+                            if (isPortOpen(ip, port, 150)) {
                                 isReachable = true
                                 break
                             }
