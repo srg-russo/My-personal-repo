@@ -1,5 +1,7 @@
 package com.example.fyp_hotspot_mobility.ui.navigation
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -10,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.*
 import com.example.fyp_hotspot_mobility.model.ConnectedDevice
@@ -20,21 +23,22 @@ import com.example.fyp_hotspot_mobility.ui.screens.BlockManagerScreen
 import com.example.fyp_hotspot_mobility.ui.screens.DeviceListScreen
 import com.example.fyp_hotspot_mobility.viewmodel.HotspotViewModel
 
-private sealed class HotspotTab(val route: String, val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    object Devices : HotspotTab("devices", "Devices", Icons.Rounded.Devices)
-    object Bandwidth : HotspotTab("bandwidth", "Bandwidth", Icons.Rounded.Speed)
-    object Block : HotspotTab("block", "Block", Icons.Rounded.Block)
+sealed class HostwatchTab(val route: String, val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    object Devices : HostwatchTab("devices", "Devices", Icons.Rounded.Devices)
+    object Bandwidth : HostwatchTab("bandwidth", "Bandwidth", Icons.Rounded.Speed)
+    object Status : HostwatchTab("block", "Status", Icons.Rounded.Block)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HotspotManagerApp(
+fun HostwatchApp(
     viewModel: HotspotViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     val navController = rememberNavController()
-    val sheetState = rememberModalBottomSheetState()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
 
     var selectedDevice by remember { mutableStateOf<ConnectedDevice?>(null) }
 
@@ -43,7 +47,12 @@ fun HotspotManagerApp(
     }
 
     val onDismissSheet = {
-        selectedDevice = null
+        scope.launch { sheetState.hide() }.invokeOnCompletion {
+            if (!sheetState.isVisible) {
+                selectedDevice = null
+            }
+        }
+        Unit
     }
 
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
@@ -64,8 +73,8 @@ fun HotspotManagerApp(
                 isScanning = uiState.isScanning,
                 hasScannedAtLeastOnce = uiState.hasScannedAtLeastOnce,
                 onScanRequested = viewModel::scanDevices,
-                showRefreshButton = currentRoute == HotspotTab.Devices.route,
-                totalBandwidth = if (currentRoute == HotspotTab.Bandwidth.route) totalUsage else null
+                showRefreshButton = currentRoute == HostwatchTab.Devices.route,
+                totalBandwidth = if (currentRoute == HostwatchTab.Bandwidth.route) totalUsage else null,
             )
         },
         bottomBar = {
@@ -73,7 +82,7 @@ fun HotspotManagerApp(
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route
 
-                val tabs = listOf(HotspotTab.Devices, HotspotTab.Bandwidth, HotspotTab.Block)
+                val tabs = listOf(HostwatchTab.Devices, HostwatchTab.Bandwidth, HostwatchTab.Status)
                 tabs.forEach { tab ->
                     NavigationBarItem(
                         icon = { Icon(imageVector = tab.icon, contentDescription = tab.title) },
@@ -97,12 +106,24 @@ fun HotspotManagerApp(
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = HotspotTab.Devices.route,
+            startDestination = HostwatchTab.Devices.route,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .padding(innerPadding),
+            enterTransition = {
+                fadeIn(animationSpec = tween(400)) + slideInHorizontally(animationSpec = tween(400)) { it }
+            },
+            exitTransition = {
+                fadeOut(animationSpec = tween(400)) + slideOutHorizontally(animationSpec = tween(400)) { -it }
+            },
+            popEnterTransition = {
+                fadeIn(animationSpec = tween(400)) + slideInHorizontally(animationSpec = tween(400)) { -it }
+            },
+            popExitTransition = {
+                fadeOut(animationSpec = tween(400)) + slideOutHorizontally(animationSpec = tween(400)) { it }
+            }
         ) {
-            composable(HotspotTab.Devices.route) {
+            composable(HostwatchTab.Devices.route) {
                 DeviceListScreen(
                     devices = uiState.devices,
                     isScanning = uiState.isScanning,
@@ -111,18 +132,17 @@ fun HotspotManagerApp(
                     onDeviceSelected = onDeviceSelected
                 )
             }
-            composable(HotspotTab.Bandwidth.route) {
+            composable(HostwatchTab.Bandwidth.route) {
                 BandwidthScreen(
                     devices = uiState.devices,
                     onDeviceSelected = onDeviceSelected
                 )
             }
-            composable(HotspotTab.Block.route) {
+            composable(HostwatchTab.Status.route) {
                 BlockManagerScreen(
                     devices = uiState.devices,
                     onBlock = viewModel::blockDevice,
-                    onUnblock = viewModel::unblockDevice,
-                    onDeviceSelected = onDeviceSelected
+                    onUnblock = viewModel::unblockDevice
                 )
             }
         }
@@ -139,14 +159,18 @@ fun HotspotManagerApp(
                     onDismiss = onDismissSheet,
                     onNicknameChanged = { viewModel.updateDeviceNickname(device.id, it) },
                     onDataLimitChanged = { viewModel.setDataLimit(device.id, it) },
-                    showLimitEditor = currentRoute == HotspotTab.Bandwidth.route
+                    onBlock = { viewModel.blockDevice(device.id) },
+                    onUnblock = { viewModel.unblockDevice(device.id) },
+                    showLimitEditor = currentRoute == HostwatchTab.Bandwidth.route,
+                    showBlockOptions = currentRoute == HostwatchTab.Devices.route
                 )
             }
         }
     }
 
     // Alert for exceeded limits
-    uiState.limitExceededAlert?.let { alertMessage ->
+    val alertMessage = uiState.limitExceededAlert
+    if (alertMessage != null) {
         AlertDialog(
             onDismissRequest = { viewModel.dismissAlert() },
             title = { Text("Bandwidth Limit Exceeded") },

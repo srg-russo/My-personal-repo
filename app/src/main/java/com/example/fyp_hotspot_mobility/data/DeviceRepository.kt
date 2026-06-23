@@ -43,6 +43,15 @@ class DeviceRepository(context: Context) {
         prefs.edit().putString("nickname_$deviceId", nickname).apply()
     }
 
+    // Persistently link an IP address to a Unique ID
+    fun saveIpMapping(ip: String, uniqueId: String) {
+        prefs.edit().putString("ip_map_$ip", uniqueId).apply()
+    }
+
+    fun getUniqueIdForIp(ip: String): String? {
+        return prefs.getString("ip_map_$ip", null)
+    }
+
     fun getDataLimit(deviceId: String): Int? {
         return prefs.getInt("data_limit_${deviceId}", -1).let { if (it < 0) null else it }
     }
@@ -54,16 +63,18 @@ class DeviceRepository(context: Context) {
         }.apply()
     }
 
+    private val sessionUsage = java.util.concurrent.ConcurrentHashMap<String, Float>()
+
     fun getUsage(deviceId: String): Float {
-        return prefs.getFloat("usage_${deviceId}", 0f)
+        return sessionUsage[deviceId] ?: 0f
     }
 
     fun addUsage(deviceId: String, amountMb: Float) {
         val current = getUsage(deviceId)
-        prefs.edit().putFloat("usage_${deviceId}", current + amountMb).apply()
+        sessionUsage[deviceId] = current + amountMb
     }
 
     fun resetUsage(deviceId: String) {
-        prefs.edit().remove("usage_${deviceId}").apply()
+        sessionUsage.remove(deviceId)
     }
 }

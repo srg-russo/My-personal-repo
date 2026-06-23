@@ -1,5 +1,6 @@
 package com.example.fyp_hotspot_mobility.ui.components
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -51,7 +52,7 @@ fun TopStatusBar(
                 Spacer(modifier = Modifier.width(10.dp))
                 Column {
                     Text(
-                        text = ssid.orEmpty().ifBlank { "My Hotspot" },
+                        text = ssid.orEmpty().ifBlank { "Hostwatch" },
                         style = MaterialTheme.typography.titleMedium
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -59,35 +60,46 @@ fun TopStatusBar(
                             text = "$connectedCount connected",
                             style = MaterialTheme.typography.bodySmall
                         )
-                        if (totalBandwidth != null) {
-                            Text(
-                                text = " • ",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = "Total: ${"%.1f".format(totalBandwidth)} MB",
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
+                        AnimatedVisibility(
+                            visible = totalBandwidth != null,
+                            enter = fadeIn() + expandHorizontally(),
+                            exit = fadeOut() + shrinkHorizontally()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = " • ",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "Total: ${"%.1f".format(totalBandwidth ?: 0f)} MB",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     }
                 }
             }
         },
         actions = {
-            if (showRefreshButton) {
-                if (isScanning) {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .padding(end = 12.dp),
-                        strokeWidth = 2.dp
-                    )
-                } else if (hasScannedAtLeastOnce) {
-                    IconButton(onClick = onScanRequested) {
-                        Icon(imageVector = Icons.Rounded.Refresh, contentDescription = "Rescan")
+            AnimatedContent(
+                targetState = isScanning,
+                label = "ScanProgress"
+            ) { scanning ->
+                if (showRefreshButton) {
+                    if (scanning) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .padding(end = 12.dp)
+                                .size(24.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else if (hasScannedAtLeastOnce) {
+                        IconButton(onClick = onScanRequested) {
+                            Icon(imageVector = Icons.Rounded.Refresh, contentDescription = "Rescan")
+                        }
                     }
                 }
             }

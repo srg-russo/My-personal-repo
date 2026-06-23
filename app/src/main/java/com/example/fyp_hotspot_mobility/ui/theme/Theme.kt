@@ -38,7 +38,7 @@ private val DarkColors = darkColorScheme(
 )
 
 @Composable
-fun HotspotManagerTheme(
+fun HostwatchTheme(
     useDarkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
@@ -57,12 +57,4 @@ fun HotspotManagerTheme(
         typography = Typography,
         content = content
     )
-}
-
-@Composable
-fun Fyp_hotspot_mobilityTheme(
-    useDarkTheme: Boolean = isSystemInDarkTheme(),
-    content: @Composable () -> Unit
-) {
-    HotspotManagerTheme(useDarkTheme, content)
 }

@@ -9,8 +9,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
-import com.example.fyp_hotspot_mobility.ui.navigation.HotspotManagerApp
-import com.example.fyp_hotspot_mobility.ui.theme.HotspotManagerTheme
+import com.example.fyp_hotspot_mobility.ui.navigation.HostwatchApp
+import com.example.fyp_hotspot_mobility.ui.theme.HostwatchTheme
 import com.example.fyp_hotspot_mobility.viewmodel.HotspotViewModel
 
 class MainActivity : ComponentActivity() {
@@ -20,7 +20,6 @@ class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        // Handle the results if needed, or just let the scanner check again on next scan
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -29,8 +28,8 @@ class MainActivity : ComponentActivity() {
         checkAndRequestPermissions()
 
         setContent {
-            HotspotManagerTheme {
-                HotspotManagerApp(viewModel)
+            HostwatchTheme {
+                HostwatchApp(viewModel)
             }
         }
     }
@@ -38,17 +37,15 @@ class MainActivity : ComponentActivity() {
     private fun checkAndRequestPermissions() {
         val permissionsToRequest = mutableListOf<String>()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
-                permissionsToRequest.add(Manifest.permission.BLUETOOTH_SCAN)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.NEARBY_WIFI_DEVICES) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.NEARBY_WIFI_DEVICES)
             }
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                permissionsToRequest.add(Manifest.permission.BLUETOOTH_CONNECT)
-            }
-        } else {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
-            }
+        }
+        
+        // Location is still needed for many Wi-Fi features on many devices
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
         }
 
         if (permissionsToRequest.isNotEmpty()) {

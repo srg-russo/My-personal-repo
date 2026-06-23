@@ -1,5 +1,6 @@
 package com.example.fyp_hotspot_mobility.ui.components
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,6 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -36,7 +39,10 @@ fun DeviceDetailBottomSheet(
     onDismiss: () -> Unit,
     onNicknameChanged: (String) -> Unit,
     onDataLimitChanged: (Int?) -> Unit,
+    onBlock: () -> Unit,
+    onUnblock: () -> Unit,
     showLimitEditor: Boolean = false,
+    showBlockOptions: Boolean = false,
 ) {
     var nickname by remember { mutableStateOf(device.hostname) }
     var limitInput by remember { mutableStateOf(device.dataLimitMb?.toString() ?: "") }
@@ -49,6 +55,7 @@ fun DeviceDetailBottomSheet(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .animateContentSize()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -118,6 +125,29 @@ fun DeviceDetailBottomSheet(
                         style = MaterialTheme.typography.bodySmall,
                         color = if (remaining < 10) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+            }
+        }
+
+        if (showBlockOptions) {
+            HorizontalDivider()
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Access Control", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    
+                    Button(
+                        onClick = { if (device.isBlocked) onUnblock() else onBlock() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (device.isBlocked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text(if (device.isBlocked) "Unblock" else "Block")
+                    }
                 }
             }
         }

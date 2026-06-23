@@ -54,6 +54,7 @@ fun DeviceListScreen(
                     DeviceCard(
                         device = device,
                         modifier = Modifier
+                            .animateItem()
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp, vertical = 6.dp),
                         onClick = { onDeviceSelected(device) }

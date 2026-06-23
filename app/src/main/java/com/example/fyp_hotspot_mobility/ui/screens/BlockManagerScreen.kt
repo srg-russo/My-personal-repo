@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -26,8 +27,7 @@ import com.example.fyp_hotspot_mobility.model.ConnectedDevice
 fun BlockManagerScreen(
     devices: List<ConnectedDevice>,
     onBlock: (String) -> Unit,
-    onUnblock: (String) -> Unit,
-    onDeviceSelected: (ConnectedDevice) -> Unit
+    onUnblock: (String) -> Unit
 ) {
     val unblockedDevices = devices.filter { !it.isBlocked }
     val blockedDevices = devices.filter { it.isBlocked }
@@ -44,15 +44,14 @@ fun BlockManagerScreen(
                 )
             }
         } else {
-            itemsIndexed(unblockedDevices) { index, device ->
+            items(unblockedDevices, key = { it.id }) { device ->
                 DeviceRowWithAction(
                     device = device,
                     buttonText = "Block",
                     buttonColors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     onButtonClick = { onBlock(device.id) },
-                    onClick = { onDeviceSelected(device) }
+                    modifier = Modifier.animateItem()
                 )
-                if (index < unblockedDevices.lastIndex) HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
             }
         }
 
@@ -70,15 +69,14 @@ fun BlockManagerScreen(
                 )
             }
         } else {
-            itemsIndexed(blockedDevices) { index, device ->
+            items(blockedDevices, key = { it.id }) { device ->
                 DeviceRowWithAction(
                     device = device,
                     buttonText = "Unblock",
                     buttonColors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     onButtonClick = { onUnblock(device.id) },
-                    onClick = { onDeviceSelected(device) }
+                    modifier = Modifier.animateItem()
                 )
-                if (index < blockedDevices.lastIndex) HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
             }
         }
     }
@@ -102,10 +100,10 @@ private fun DeviceRowWithAction(
     buttonText: String,
     buttonColors: androidx.compose.material3.ButtonColors,
     onButtonClick: () -> Unit,
-    onClick: () -> Unit
+    modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -113,7 +111,6 @@ private fun DeviceRowWithAction(
         Column(
             modifier = Modifier
                 .weight(1f)
-                .clickable { onClick() }
         ) {
             Text(
                 text = device.hostname.ifBlank { "Unknown Device" },

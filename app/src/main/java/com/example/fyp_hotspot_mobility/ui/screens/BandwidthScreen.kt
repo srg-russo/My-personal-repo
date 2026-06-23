@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -67,7 +68,8 @@ fun BandwidthScreen(
             items(devices, key = { it.id }) { device ->
                 BandwidthDeviceRow(
                     device = device,
-                    onClick = { onDeviceSelected(device) }
+                    onClick = { onDeviceSelected(device) },
+                    modifier = Modifier.animateItem()
                 )
             }
         }
@@ -77,27 +79,53 @@ fun BandwidthScreen(
 @Composable
 fun BandwidthDeviceRow(
     device: ConnectedDevice,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    val isBlocked = device.isBlocked
+    val cardAlpha = if (isBlocked) 0.55f else 1f
+
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
             .clickable { onClick() },
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .padding(16.dp)
+                .alpha(cardAlpha)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = device.hostname.ifBlank { "Unknown Device" },
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = device.hostname.ifBlank { "Unknown Device" },
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isBlocked) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f) else Color.Unspecified
+                        )
+                        if (isBlocked) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.errorContainer,
+                                shape = MaterialTheme.shapes.extraSmall
+                            ) {
+                                Text(
+                                    text = "BLOCKED",
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
                     Text(
                         text = device.ipAddress,
                         style = MaterialTheme.typography.bodySmall,
@@ -109,7 +137,7 @@ fun BandwidthDeviceRow(
                     Text(
                         text = "${"%.1f".format(device.usageMb)} MB",
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
+                        color = if (isBlocked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
                     )
                     if (device.dataLimitMb != null) {
                         Text(
@@ -129,7 +157,11 @@ fun BandwidthDeviceRow(
             
             if (device.dataLimitMb != null) {
                 val progress = (device.usageMb / device.dataLimitMb).coerceIn(0f, 1f)
-                val color = if (progress > 0.9f) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                val color = when {
+                    isBlocked -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                    progress > 0.9f -> MaterialTheme.colorScheme.error
+                    else -> MaterialTheme.colorScheme.primary
+                }
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 

@@ -21,5 +21,6 @@ data class UsageLogEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val deviceMac: String,
+    val usageMb: Float,
     val timestamp: Long = System.currentTimeMillis()
 )

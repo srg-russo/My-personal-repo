@@ -22,6 +22,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "fyp_hotspot_mobility"
+rootProject.name = "Hostwatch"
 include(":app")
+include(":agent")
  
