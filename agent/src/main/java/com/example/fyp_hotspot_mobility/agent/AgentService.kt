@@ -112,7 +112,7 @@ class AgentService : Service() {
             }
         }
 
-        // Fallback to ConnectivityManager LinkProperties
+        // Fallback to ConnectivityManager
         val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val wifiNetwork = cm.allNetworks.firstOrNull { network ->
             cm.getNetworkCapabilities(network)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
