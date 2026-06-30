@@ -77,7 +77,6 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setupAgent() {
-        // 1. Initial Start
         val intent = Intent(this, AgentService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(intent)
@@ -85,7 +84,6 @@ class MainActivity : ComponentActivity() {
             startService(intent)
         }
 
-        // 2. SET THE SYSTEM TRAP: Wake me up on any Wi-Fi activity forever
         val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         try {
             connectivityManager.registerNetworkCallback(
@@ -94,7 +92,6 @@ class MainActivity : ComponentActivity() {
             )
         } catch (e: Exception) { }
 
-        // 3. Auto-close the activity after a delay
         lifecycleScope.launch {
             delay(5000)
             finish()

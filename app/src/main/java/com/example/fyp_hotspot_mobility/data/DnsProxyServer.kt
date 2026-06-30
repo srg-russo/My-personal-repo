@@ -117,8 +117,7 @@ class DnsProxyServer(
         flags = (flags and 0xFFF0) or (rcode and 0x000F)
         
         buffer.putShort(2, flags.toShort())
-        
-        // ANCOUNT, NSCOUNT, ARCOUNT = 0 for error responses
+
         buffer.putShort(6, 0)
         buffer.putShort(8, 0)
         buffer.putShort(10, 0)

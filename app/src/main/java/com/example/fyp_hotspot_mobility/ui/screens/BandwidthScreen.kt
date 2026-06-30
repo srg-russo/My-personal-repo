@@ -24,7 +24,6 @@ fun BandwidthScreen(
     val totalUsage = devices.sumOf { it.usageMb.toDouble() }.toFloat()
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Summary Header
         Card(
             modifier = Modifier
                 .fillMaxWidth()

@@ -38,11 +38,13 @@ fun DeviceCard(
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .animateContentSize(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        )
     ) {
         Column(modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
             .padding(12.dp)
             .then(Modifier.alpha(cardAlpha))) {
 

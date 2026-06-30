@@ -3,9 +3,11 @@ package com.example.fyp_hotspot_mobility.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -20,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.fyp_hotspot_mobility.model.ConnectedDevice
 
@@ -32,51 +35,56 @@ fun BlockManagerScreen(
     val unblockedDevices = devices.filter { !it.isBlocked }
     val blockedDevices = devices.filter { it.isBlocked }
 
-    LazyColumn(modifier = Modifier.fillMaxWidth()) {
-        item { SectionHeader(title = "Active Devices") }
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Active Devices Section
+        Column(modifier = Modifier.weight(1f)) {
+            SectionHeader(title = "Active Devices")
 
-        if (unblockedDevices.isEmpty()) {
-            item {
+            if (unblockedDevices.isEmpty()) {
                 Text(
                     text = "No active devices connected.",
                     modifier = Modifier.padding(16.dp),
                     style = MaterialTheme.typography.bodyMedium
                 )
-            }
-        } else {
-            items(unblockedDevices, key = { it.id }) { device ->
-                DeviceRowWithAction(
-                    device = device,
-                    buttonText = "Block",
-                    buttonColors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                    onButtonClick = { onBlock(device.id) },
-                    modifier = Modifier.animateItem()
-                )
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                    items(unblockedDevices, key = { it.id }) { device ->
+                        DeviceRowWithAction(
+                            device = device,
+                            buttonText = "Block",
+                            buttonColors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            onButtonClick = { onBlock(device.id) },
+                            modifier = Modifier.animateItem()
+                        )
+                    }
+                }
             }
         }
 
-        item { 
-            Spacer(modifier = Modifier.height(48.dp))
-            SectionHeader(title = "Blocked Devices") 
-        }
+        HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
 
-        if (blockedDevices.isEmpty()) {
-            item {
+        // Blocked Devices Section
+        Column(modifier = Modifier.weight(1f)) {
+            SectionHeader(title = "Blocked Devices")
+
+            if (blockedDevices.isEmpty()) {
                 Text(
                     text = "No blocked devices.",
                     modifier = Modifier.padding(16.dp),
                     style = MaterialTheme.typography.bodyMedium
                 )
-            }
-        } else {
-            items(blockedDevices, key = { it.id }) { device ->
-                DeviceRowWithAction(
-                    device = device,
-                    buttonText = "Unblock",
-                    buttonColors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                    onButtonClick = { onUnblock(device.id) },
-                    modifier = Modifier.animateItem()
-                )
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                    items(blockedDevices, key = { it.id }) { device ->
+                        DeviceRowWithAction(
+                            device = device,
+                            buttonText = "Unblock",
+                            buttonColors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            onButtonClick = { onUnblock(device.id) },
+                            modifier = Modifier.animateItem()
+                        )
+                    }
+                }
             }
         }
     }
@@ -90,7 +98,8 @@ private fun SectionHeader(title: String) {
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(12.dp),
-        style = MaterialTheme.typography.titleMedium
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold
     )
 }
 

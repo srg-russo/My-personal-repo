@@ -33,7 +33,6 @@ class AgentService : Service() {
                 .build()
         }
 
-        // This is the "Trap" we set in the Android OS
         fun getPendingIntent(context: Context): PendingIntent {
             val intent = Intent(context, AgentService::class.java)
             return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -88,7 +87,7 @@ class AgentService : Service() {
                     stopVpn()
                 }
 
-                // If no Hostwatch found for ~2 minutes, stop service
+                // stop the service if no Hotspot connection is found within 2 minutes
                 if (failureCount >= 12) {
                     Log.d("AgentService", "Hostwatch not found. Stopping service to save battery.")
                     stopVpn()
@@ -104,7 +103,7 @@ class AgentService : Service() {
         val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
         val dhcp = wm.dhcpInfo
         
-        // 1. Try WifiManager DHCP Info (most reliable for Hotspot gateway)
+        // Using WifiManager DHCP Info to find gatewayIP
         if (dhcp != null && dhcp.gateway != 0) {
             val gateway = Formatter.formatIpAddress(dhcp.gateway)
             if (gateway != "0.0.0.0") {
@@ -113,7 +112,7 @@ class AgentService : Service() {
             }
         }
 
-        // 2. Fallback to ConnectivityManager LinkProperties
+        // Fallback to ConnectivityManager LinkProperties
         val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val wifiNetwork = cm.allNetworks.firstOrNull { network ->
             cm.getNetworkCapabilities(network)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
@@ -127,7 +126,7 @@ class AgentService : Service() {
                 return gatewayRoute
             }
             
-            // 3. Fallback to Subnet .1 logic
+            // Fallback to Subnet .1 logic
             val ipv4Addr = linkProps?.linkAddresses?.firstOrNull { 
                 val addr = it.address.hostAddress
                 addr != null && addr.contains(".") 
@@ -202,7 +201,7 @@ class AgentService : Service() {
         serviceScope.launch {
             var socket: DatagramSocket? = null
             try {
-                // Try to bind specifically to the WiFi network to receive commands even when VPN is active
+                // binding specifically to the WiFi network to receive commands even when VPN is active
                 val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
                 val wifiNetwork = cm.allNetworks.firstOrNull { network ->
                     cm.getNetworkCapabilities(network)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true

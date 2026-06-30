@@ -42,8 +42,7 @@ class MainActivity : ComponentActivity() {
                 permissionsToRequest.add(Manifest.permission.NEARBY_WIFI_DEVICES)
             }
         }
-        
-        // Location is still needed for many Wi-Fi features on many devices
+
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
         }

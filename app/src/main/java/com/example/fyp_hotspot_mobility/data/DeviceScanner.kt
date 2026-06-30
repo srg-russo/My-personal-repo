@@ -20,7 +20,6 @@ object DeviceScanner {
     private fun getHotspotLocalIp(): String? {
         try {
             val interfaces = NetworkInterface.getNetworkInterfaces()?.toList() ?: return null
-            // 1. Try specifically labeled hotspot interfaces first
             val hotspotInterfaceNames = listOf("ap", "wlan1", "softap", "bridge", "rndis", "swlan", "wlan0")
             for (intf in interfaces) {
                 val name = intf.name.lowercase(Locale.US)
@@ -33,7 +32,6 @@ object DeviceScanner {
                             if (host.startsWith("192.168.43.") || host.startsWith("172.20.")) return host
                         }
                     }
-                    // Fallback to any IPv4 on these interfaces
                     for (addr in intf.inetAddresses) {
                         val host = addr.hostAddress
                         if (host != null && host.contains(".") && !addr.isLinkLocalAddress) return host
@@ -41,7 +39,6 @@ object DeviceScanner {
                 }
             }
 
-            // 2. Fallback to any interface that isn't a known mobile data (WAN) interface
             for (intf in interfaces) {
                 val name = intf.name.lowercase(Locale.US)
                 if (name.contains("rmnet") || name.contains("pdp") || name.contains("ccmni") || 
