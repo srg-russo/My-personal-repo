@@ -85,7 +85,7 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
 
     private val lastAgentByteCounts = mutableMapOf<String, Long>()
 
-    private fun updateUsageFromAgent(deviceId: String, currentTotalBytes: Long) {
+    private suspend fun updateUsageFromAgent(deviceId: String, currentTotalBytes: Long) {
         val lastBytes = lastAgentByteCounts[deviceId]
         if (lastBytes != null && currentTotalBytes > lastBytes) {
             val deltaBytes = currentTotalBytes - lastBytes
@@ -112,10 +112,17 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
     private fun startBandwidthTracking() {
         trackingJob?.cancel()
         trackingJob = viewModelScope.launch(Dispatchers.IO) {
+            var wasEnabled = _uiState.value.isHotspotEnabled
             while (isActive) {
                 val isEnabled = DeviceScanner.isHotspotEnabled(getApplication())
                 val ssid = if (isEnabled) DeviceScanner.getHotspotSsid(getApplication()) else null
                 
+                if (wasEnabled && !isEnabled) {
+                    android.util.Log.d("HotspotViewModel", "Hotspot turned off, archiving and resetting usage")
+                    repository.archiveAndResetUsage()
+                }
+                wasEnabled = isEnabled
+
                 withContext(Dispatchers.Main) {
                     if (_uiState.value.isHotspotEnabled != isEnabled || _uiState.value.ssid != ssid) {
                         _uiState.update { it.copy(isHotspotEnabled = isEnabled, ssid = ssid) }
@@ -136,47 +143,46 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private fun refreshUsageAndCheckLimits() {
-        val updatedDevices = _uiState.value.devices.map { device ->
-            device.copy(usageMb = repository.getUsage(device.id))
-        }
-        
-        // Find devices that are over the limit and not already blocked
-        val newlyExceededDevices = updatedDevices.filter { 
-            it.dataLimitMb != null && it.usageMb > it.dataLimitMb && !it.isBlocked
-        }
-
-        // Automatically block devices that just exceeded their limit
-        newlyExceededDevices.forEach { device ->
-            android.util.Log.d("HotspotViewModel", "Auto-blocking ${device.hostname} - Exceeded limit (${device.usageMb}/${device.dataLimitMb} MB)")
-            blockDevice(device.id)
-        }
-
-        // Update list again to reflect the new blocked states
-        val finalDevices = _uiState.value.devices.map { device ->
-            device.copy(
-                usageMb = repository.getUsage(device.id),
-                isBlocked = repository.isBlocked(device.id)
-            )
-        }
-
-        val overLimitIds = updatedDevices.filter { it.dataLimitMb != null && it.usageMb > it.dataLimitMb }.map { it.id }.toSet()
-        dismissedExceededDeviceIds.retainAll(overLimitIds)
-
-        val newlyExceededNames = newlyExceededDevices
-            .filter { !dismissedExceededDeviceIds.contains(it.id) }
-            .joinToString(", ") { it.hostname }
+        viewModelScope.launch(Dispatchers.IO) {
+            val currentDevices = _uiState.value.devices
+            val updatedDevices = mutableListOf<ConnectedDevice>()
             
-        val alert = if (newlyExceededNames.isNotEmpty()) {
-            "Data limit exceeded and device(s) blocked: $newlyExceededNames"
-        } else {
-            _uiState.value.limitExceededAlert
-        }
+            for (device in currentDevices) {
+                updatedDevices.add(device.copy(
+                    usageMb = repository.getUsage(device.id)
+                ))
+            }
+            
+            // Find devices that are over the limit and not already blocked
+            val newlyExceededDevices = updatedDevices.filter { 
+                it.dataLimitMb != null && it.usageMb > it.dataLimitMb && !it.isBlocked
+            }
 
-        _uiState.update { 
-            it.copy(
-                devices = finalDevices,
-                limitExceededAlert = alert
-            )
+            // Automatically block devices that just exceeded their limit
+            newlyExceededDevices.forEach { device ->
+                android.util.Log.d("HotspotViewModel", "Auto-blocking ${device.hostname} - Exceeded limit (${device.usageMb}/${device.dataLimitMb} MB)")
+                blockDevice(device.id)
+            }
+
+            val overLimitIds = updatedDevices.filter { it.dataLimitMb != null && it.usageMb > it.dataLimitMb }.map { it.id }.toSet()
+            dismissedExceededDeviceIds.retainAll(overLimitIds)
+
+            val newlyExceededNames = newlyExceededDevices
+                .filter { !dismissedExceededDeviceIds.contains(it.id) }
+                .joinToString(", ") { it.hostname }
+                
+            val alert = if (newlyExceededNames.isNotEmpty()) {
+                "Data limit exceeded and device(s) blocked: $newlyExceededNames"
+            } else {
+                _uiState.value.limitExceededAlert
+            }
+
+            _uiState.update { 
+                it.copy(
+                    devices = updatedDevices,
+                    limitExceededAlert = alert
+                )
+            }
         }
     }
 
@@ -188,7 +194,7 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
 
         _uiState.update { it.copy(isScanning = true) }
 
-        // Wi-Fi Scan (Main UI Task)
+        // Wi-Fi Scan
         scanJob = viewModelScope.launch {
             try {
                 // Update basic info first
@@ -197,27 +203,26 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
                 }
                 _uiState.update { it.copy(ssid = ssid, isHotspotEnabled = isEnabled, devices = emptyList()) }
 
-                val blockedIds = repository.blockedDeviceIds.value
-
 
                 DeviceScanner.scanConnectedDevices { rawDevice ->
                     viewModelScope.launch {
                         val cachedInfo = agentCache[rawDevice.ipAddress]
-                        val persistentId = repository.getUniqueIdForIp(rawDevice.ipAddress)
+                        val persistentId = withContext(Dispatchers.IO) { repository.getUniqueIdForIp(rawDevice.ipAddress) }
                         
                         val effectiveId = cachedInfo?.second ?: persistentId ?: rawDevice.id
 
-                        val savedName = repository.getNickname(effectiveId)
-                        val nickname = repository.getNickname(rawDevice.id).takeUnless { it.isNullOrBlank() } 
+                        val savedName = withContext(Dispatchers.IO) { repository.getNickname(effectiveId) }
+                        val nickname = withContext(Dispatchers.IO) { repository.getNickname(rawDevice.id).takeUnless { it.isNullOrBlank() } } 
                         
                         val hostname = rawDevice.hostname
+                        val isBlocked = withContext(Dispatchers.IO) { repository.isBlocked(effectiveId) }
 
                         val enriched = rawDevice.copy(
                             hostname = savedName ?: nickname ?: hostname,
                             id = effectiveId,
-                            isBlocked = repository.isBlocked(effectiveId),
-                            dataLimitMb = repository.getDataLimit(effectiveId),
-                            usageMb = repository.getUsage(effectiveId)
+                            isBlocked = isBlocked,
+                            dataLimitMb = withContext(Dispatchers.IO) { repository.getDataLimit(effectiveId) },
+                            usageMb = withContext(Dispatchers.IO) { repository.getUsage(effectiveId) }
                         )
 
                         // Update the list immediately
@@ -260,32 +265,36 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun blockDevice(id: String) {
-        repository.blockDevice(id)
-        updateDeviceState(id) { it.copy(isBlocked = true) }
-        sendCommandToAgent(id, "BLOCK")
+        viewModelScope.launch {
+            repository.blockDevice(id)
+            updateDeviceState(id) { it.copy(isBlocked = true) }
+            sendCommandToAgent(id, "BLOCK")
+        }
     }
 
     fun unblockDevice(id: String) {
-        repository.unblockDevice(id)
+        viewModelScope.launch {
+            repository.unblockDevice(id)
 
-        val device = _uiState.value.devices.find { it.id == id }
-        if (device != null && device.dataLimitMb != null && device.usageMb > device.dataLimitMb) {
-            android.util.Log.d("HotspotViewModel", "Removing limit for $id upon manual unblock")
-            repository.setDataLimit(id, null)
-            updateDeviceState(id) { it.copy(isBlocked = false, dataLimitMb = null) }
-        } else {
-            updateDeviceState(id) { it.copy(isBlocked = false) }
+            val device = _uiState.value.devices.find { it.id == id }
+            if (device != null && device.dataLimitMb != null && device.usageMb > device.dataLimitMb) {
+                android.util.Log.d("HotspotViewModel", "Removing limit for $id upon manual unblock")
+                repository.setDataLimit(id, null)
+                updateDeviceState(id) { it.copy(isBlocked = false, dataLimitMb = null) }
+            } else {
+                updateDeviceState(id) { it.copy(isBlocked = false) }
+            }
+
+            sendCommandToAgent(id, "UNBLOCK")
         }
-
-        sendCommandToAgent(id, "UNBLOCK")
     }
 
     private fun sendCommandToAgent(deviceId: String, command: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            // 1. Try to find IP from cache (most reliable for Agent devices)
+            // Try to find IP from cache
             var ip = agentCache.filterValues { it.second == deviceId }.keys.firstOrNull()
             
-            // 2. Fallback to the IP in the UI state
+            // Fallback to the IP in the UI state
             if (ip == null) {
                 ip = _uiState.value.devices.find { it.id == deviceId }?.ipAddress
             }
@@ -316,13 +325,38 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun setDataLimit(id: String, limitMb: Int?) {
-        repository.setDataLimit(id, limitMb)
-        updateDeviceState(id) { it.copy(dataLimitMb = limitMb) }
+        viewModelScope.launch {
+            repository.setDataLimit(id, limitMb)
+            updateDeviceState(id) { it.copy(dataLimitMb = limitMb) }
+        }
     }
 
     fun updateDeviceNickname(id: String, name: String) {
-        repository.setNickname(id, name)
-        updateDeviceState(id) { it.copy(hostname = name) }
+        viewModelScope.launch {
+            repository.setNickname(id, name)
+            updateDeviceState(id) { it.copy(hostname = name) }
+        }
+    }
+
+    private var logCollectionJob: Job? = null
+    fun loadUsageLogs(deviceId: String) {
+        logCollectionJob?.cancel()
+        logCollectionJob = viewModelScope.launch {
+            repository.getUsageLogs(deviceId).collect { logs ->
+                _uiState.update { it.copy(selectedDeviceLogs = logs) }
+            }
+        }
+    }
+
+    fun clearUsageLogs() {
+        logCollectionJob?.cancel()
+        _uiState.update { it.copy(selectedDeviceLogs = emptyList()) }
+    }
+
+    fun deleteDeviceHistory(deviceId: String) {
+        viewModelScope.launch {
+            repository.clearUsageLogs(deviceId)
+        }
     }
 
     fun dismissAlert() {

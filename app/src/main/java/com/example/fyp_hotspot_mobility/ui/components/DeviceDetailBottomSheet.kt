@@ -32,15 +32,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.fyp_hotspot_mobility.model.ConnectedDevice
+import com.example.fyp_hotspot_mobility.data.local.entity.UsageLogEntity
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun DeviceDetailBottomSheet(
     device: ConnectedDevice,
+    usageLogs: List<UsageLogEntity> = emptyList(),
     onDismiss: () -> Unit,
     onNicknameChanged: (String) -> Unit,
     onDataLimitChanged: (Int?) -> Unit,
     onBlock: () -> Unit,
     onUnblock: () -> Unit,
+    onClearHistory: () -> Unit = {},
     showLimitEditor: Boolean = false,
     showBlockOptions: Boolean = false,
 ) {
@@ -172,6 +178,37 @@ fun DeviceDetailBottomSheet(
                     suffix = { Text("MB") },
                     supportingText = { Text("Set to empty to remove limit") }
                 )
+            }
+        }
+
+        if (usageLogs.isNotEmpty()) {
+            HorizontalDivider()
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Session History",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    TextButton(onClick = onClearHistory) {
+                        Text("Clear History", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                
+                usageLogs.take(10).forEach { log ->
+                    val date = SimpleDateFormat("MMM dd, yyyy - hh:mm a", Locale.getDefault()).format(Date(log.timestamp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(date, style = MaterialTheme.typography.bodyMedium)
+                        Text("${"%.2f".format(log.usageMb)} MB", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
 

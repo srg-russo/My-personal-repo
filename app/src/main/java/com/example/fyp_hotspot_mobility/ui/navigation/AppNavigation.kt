@@ -50,9 +50,16 @@ fun HostwatchApp(
         scope.launch { sheetState.hide() }.invokeOnCompletion {
             if (!sheetState.isVisible) {
                 selectedDevice = null
+                viewModel.clearUsageLogs()
             }
         }
         Unit
+    }
+
+    LaunchedEffect(selectedDevice?.id) {
+        selectedDevice?.let { 
+            viewModel.loadUsageLogs(it.id)
+        } ?: viewModel.clearUsageLogs()
     }
 
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
@@ -156,11 +163,13 @@ fun HostwatchApp(
             selectedDevice?.let { device ->
                 DeviceDetailBottomSheet(
                     device = device,
+                    usageLogs = uiState.selectedDeviceLogs,
                     onDismiss = onDismissSheet,
                     onNicknameChanged = { viewModel.updateDeviceNickname(device.id, it) },
                     onDataLimitChanged = { viewModel.setDataLimit(device.id, it) },
                     onBlock = { viewModel.blockDevice(device.id) },
                     onUnblock = { viewModel.unblockDevice(device.id) },
+                    onClearHistory = { viewModel.deleteDeviceHistory(device.id) },
                     showLimitEditor = currentRoute == HostwatchTab.Bandwidth.route,
                     showBlockOptions = currentRoute == HostwatchTab.Devices.route
                 )

@@ -1,80 +1,116 @@
 package com.example.fyp_hotspot_mobility.data
 
 import android.content.Context
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-
-// A persistence layer for blocked devices, nicknames, and bandwidth caps.
+import com.example.fyp_hotspot_mobility.data.local.AppDatabase
+import com.example.fyp_hotspot_mobility.data.local.entity.DeviceEntity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 
 class DeviceRepository(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences("hotspot_manager_prefs", Context.MODE_PRIVATE)
+    private val database = AppDatabase.getDatabase(context)
+    private val dao = database.deviceDao()
 
-    private val _blockedDeviceIds = MutableStateFlow(loadBlockedIds())
-    val blockedDeviceIds: StateFlow<Set<String>> = _blockedDeviceIds.asStateFlow()
-
-    fun isBlocked(deviceId: String): Boolean = _blockedDeviceIds.value.contains(deviceId)
-
-    fun blockDevice(deviceId: String) {
-        val updated = _blockedDeviceIds.value.toMutableSet().also { it.add(deviceId) }
-        _blockedDeviceIds.value = updated
-        persistBlockedIds(updated)
+    suspend fun isBlocked(deviceId: String): Boolean {
+        return dao.getDeviceByMac(deviceId)?.isBlocked ?: false
     }
 
-    fun unblockDevice(deviceId: String) {
-        val updated = _blockedDeviceIds.value.toMutableSet().also { it.remove(deviceId) }
-        _blockedDeviceIds.value = updated
-        persistBlockedIds(updated)
+    suspend fun blockDevice(deviceId: String) {
+        val device = dao.getDeviceByMac(deviceId)
+        if (device != null) {
+            dao.updateDevice(device.copy(isBlocked = true))
+        } else {
+            dao.insertDevice(DeviceEntity(macAddress = deviceId, name = null, ipAddress = "", isBlocked = true))
+        }
     }
 
-    private fun loadBlockedIds(): Set<String> {
-        return prefs.getStringSet("blocked_device_ids", emptySet()) ?: emptySet()
+    suspend fun unblockDevice(deviceId: String) {
+        val device = dao.getDeviceByMac(deviceId)
+        if (device != null) {
+            dao.updateDevice(device.copy(isBlocked = false))
+        }
     }
 
-    private fun persistBlockedIds(ids: Set<String>) {
-        prefs.edit().putStringSet("blocked_device_ids", ids).apply()
+    suspend fun getNickname(deviceId: String): String? {
+        return dao.getDeviceByMac(deviceId)?.name
     }
 
-    fun getNickname(deviceId: String): String? {
-        return prefs.getString("nickname_$deviceId", null)
+    suspend fun setNickname(deviceId: String, nickname: String) {
+        val device = dao.getDeviceByMac(deviceId)
+        if (device != null) {
+            dao.updateDevice(device.copy(name = nickname))
+        } else {
+            dao.insertDevice(DeviceEntity(macAddress = deviceId, name = nickname, ipAddress = ""))
+        }
     }
 
-    fun setNickname(deviceId: String, nickname: String) {
-        prefs.edit().putString("nickname_$deviceId", nickname).apply()
+    suspend fun saveIpMapping(ip: String, uniqueId: String) {
+        val device = dao.getDeviceByMac(uniqueId)
+        if (device != null) {
+            dao.updateDevice(device.copy(ipAddress = ip))
+        } else {
+            dao.insertDevice(DeviceEntity(macAddress = uniqueId, name = null, ipAddress = ip))
+        }
     }
 
-    // Persistently link an IP address to a Unique ID
-    fun saveIpMapping(ip: String, uniqueId: String) {
-        prefs.edit().putString("ip_map_$ip", uniqueId).apply()
+    suspend fun getUniqueIdForIp(ip: String): String? {
+        return dao.getMacByIp(ip)
     }
 
-    fun getUniqueIdForIp(ip: String): String? {
-        return prefs.getString("ip_map_$ip", null)
+    suspend fun getDataLimit(deviceId: String): Int? {
+        return dao.getDeviceByMac(deviceId)?.dataLimitMb
     }
 
-    fun getDataLimit(deviceId: String): Int? {
-        return prefs.getInt("data_limit_${deviceId}", -1).let { if (it < 0) null else it }
+    suspend fun setDataLimit(deviceId: String, limitMb: Int?) {
+        val device = dao.getDeviceByMac(deviceId)
+        if (device != null) {
+            dao.updateDevice(device.copy(dataLimitMb = limitMb))
+        }
     }
 
-    fun setDataLimit(deviceId: String, limitMb: Int?) {
-        prefs.edit().apply {
-            if (limitMb == null) remove("data_limit_${deviceId}")
-            else putInt("data_limit_${deviceId}", limitMb)
-        }.apply()
+    suspend fun getUsage(deviceId: String): Float {
+        return dao.getDeviceByMac(deviceId)?.usageMb ?: 0f
     }
 
-    private val sessionUsage = java.util.concurrent.ConcurrentHashMap<String, Float>()
-
-    fun getUsage(deviceId: String): Float {
-        return sessionUsage[deviceId] ?: 0f
+    suspend fun addUsage(deviceId: String, amountMb: Float) {
+        val device = dao.getDeviceByMac(deviceId)
+        if (device != null) {
+            dao.updateDevice(device.copy(usageMb = device.usageMb + amountMb))
+        }
     }
 
-    fun addUsage(deviceId: String, amountMb: Float) {
-        val current = getUsage(deviceId)
-        sessionUsage[deviceId] = current + amountMb
+    suspend fun resetUsage(deviceId: String) {
+        val device = dao.getDeviceByMac(deviceId)
+        if (device != null) {
+            dao.updateDevice(device.copy(usageMb = 0f))
+        }
     }
 
-    fun resetUsage(deviceId: String) {
-        sessionUsage.remove(deviceId)
+    suspend fun resetAllUsage() {
+        dao.resetAllUsage()
+    }
+
+    suspend fun archiveAndResetUsage() {
+        val devices = dao.getAllDevices().first()
+        for (device in devices) {
+            if (device.usageMb > 0) {
+                dao.insertUsageLog(
+                    com.example.fyp_hotspot_mobility.data.local.entity.UsageLogEntity(
+                        deviceMac = device.macAddress,
+                        usageMb = device.usageMb
+                    )
+                )
+            }
+        }
+        dao.resetAllUsage()
+    }
+
+    fun getUsageLogs(mac: String): Flow<List<com.example.fyp_hotspot_mobility.data.local.entity.UsageLogEntity>> {
+        return dao.getUsageLogsForDevice(mac)
+    }
+
+    suspend fun clearUsageLogs(mac: String) {
+        dao.deleteUsageLogsForDevice(mac)
     }
 }

@@ -10,6 +10,8 @@ data class DeviceEntity(
     val name: String?,
     val ipAddress: String,
     val isBlocked: Boolean = false,
+    val dataLimitMb: Int? = null,
+    val usageMb: Float = 0f,
     val firstSeen: Long = System.currentTimeMillis(),
     val lastSeen: Long = System.currentTimeMillis()
 )
