@@ -88,7 +88,7 @@ fun DeviceDetailBottomSheet(
                 Text(device.ipAddress, style = MaterialTheme.typography.bodyLarge)
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text("Hardware ID", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                Text("Device ID", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                 Text(device.id, style = MaterialTheme.typography.bodyMedium)
             }
         }

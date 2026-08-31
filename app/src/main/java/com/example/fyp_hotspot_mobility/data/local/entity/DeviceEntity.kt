@@ -6,7 +6,7 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "devices")
 data class DeviceEntity(
     @PrimaryKey
-    val macAddress: String,
+    val deviceId: String,
     val name: String?,
     val ipAddress: String,
     val isBlocked: Boolean = false,

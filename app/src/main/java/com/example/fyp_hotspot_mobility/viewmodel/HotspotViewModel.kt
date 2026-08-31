@@ -24,15 +24,15 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
     private var scanJob: Job? = null
     private var trackingJob: Job? = null
     private val dismissedExceededDeviceIds = mutableSetOf<String>()
-    private val agentCache = mutableMapOf<String, Pair<String, String>>() // IP -> Pair(Name, ID)
+    private val agentCache = mutableMapOf<String, Pair<String, String>>()
 
     init {
         // Fetch initial hotspot info on startup
         viewModelScope.launch {
-            val (ssid, isEnabled) = withContext(Dispatchers.IO) {
-                DeviceScanner.getHotspotSsid(getApplication()) to DeviceScanner.isHotspotEnabled(getApplication())
+            val isEnabled = withContext(Dispatchers.IO) {
+                DeviceScanner.isHotspotEnabled(getApplication())
             }
-            _uiState.update { it.copy(ssid = ssid, isHotspotEnabled = isEnabled) }
+            _uiState.update { it.copy(isHotspotEnabled = isEnabled) }
         }
         
         startBandwidthTracking()
@@ -59,6 +59,9 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
                             val deviceName = parts[0]
                             val uniqueId = parts[1]
                             val clientReportedTotalBytes = parts.getOrNull(2)?.toLongOrNull() ?: 0L
+                            
+                            // link new device nickname to its corresponding unique id for persistent storage
+                            repository.migrateNickname(clientIp, uniqueId)
                             
                             repository.setNickname(uniqueId, deviceName)
                             repository.saveIpMapping(clientIp, uniqueId)
@@ -115,7 +118,6 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
             var wasEnabled = _uiState.value.isHotspotEnabled
             while (isActive) {
                 val isEnabled = DeviceScanner.isHotspotEnabled(getApplication())
-                val ssid = if (isEnabled) DeviceScanner.getHotspotSsid(getApplication()) else null
                 
                 if (wasEnabled && !isEnabled) {
                     android.util.Log.d("HotspotViewModel", "Hotspot turned off, archiving and resetting usage")
@@ -124,8 +126,8 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
                 wasEnabled = isEnabled
 
                 withContext(Dispatchers.Main) {
-                    if (_uiState.value.isHotspotEnabled != isEnabled || _uiState.value.ssid != ssid) {
-                        _uiState.update { it.copy(isHotspotEnabled = isEnabled, ssid = ssid) }
+                    if (_uiState.value.isHotspotEnabled != isEnabled) {
+                        _uiState.update { it.copy(isHotspotEnabled = isEnabled) }
                     }
                     
                     // Periodically refresh usage from repository
@@ -198,10 +200,10 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
         scanJob = viewModelScope.launch {
             try {
                 // Update basic info first
-                val (ssid, isEnabled) = withContext(Dispatchers.IO) {
-                    DeviceScanner.getHotspotSsid(getApplication()) to DeviceScanner.isHotspotEnabled(getApplication())
+                val isEnabled = withContext(Dispatchers.IO) {
+                    DeviceScanner.isHotspotEnabled(getApplication())
                 }
-                _uiState.update { it.copy(ssid = ssid, isHotspotEnabled = isEnabled, devices = emptyList()) }
+                _uiState.update { it.copy(isHotspotEnabled = isEnabled, devices = emptyList()) }
 
 
                 DeviceScanner.scanConnectedDevices { rawDevice ->
@@ -211,14 +213,13 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
                         
                         val effectiveId = cachedInfo?.second ?: persistentId ?: rawDevice.id
 
-                        val savedName = withContext(Dispatchers.IO) { repository.getNickname(effectiveId) }
-                        val nickname = withContext(Dispatchers.IO) { repository.getNickname(rawDevice.id).takeUnless { it.isNullOrBlank() } } 
+                        val savedNameByEffectiveId = withContext(Dispatchers.IO) { repository.getNickname(effectiveId) }
+                        val savedNameByIp = withContext(Dispatchers.IO) { repository.getNickname(rawDevice.ipAddress) }
                         
-                        val hostname = rawDevice.hostname
                         val isBlocked = withContext(Dispatchers.IO) { repository.isBlocked(effectiveId) }
 
                         val enriched = rawDevice.copy(
-                            hostname = savedName ?: nickname ?: hostname,
+                            hostname = savedNameByEffectiveId ?: savedNameByIp ?: rawDevice.hostname,
                             id = effectiveId,
                             isBlocked = isBlocked,
                             dataLimitMb = withContext(Dispatchers.IO) { repository.getDataLimit(effectiveId) },

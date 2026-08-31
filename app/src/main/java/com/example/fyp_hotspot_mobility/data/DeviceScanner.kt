@@ -2,7 +2,6 @@ package com.example.fyp_hotspot_mobility.data
 
 import android.content.Context
 import android.net.wifi.WifiManager
-import android.os.Build
 import com.example.fyp_hotspot_mobility.model.ConnectedDevice
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.withPermit
@@ -28,7 +27,6 @@ object DeviceScanner {
                     for (addr in addrs) {
                         val host = addr.hostAddress
                         if (host != null && host.contains(".") && !addr.isLinkLocalAddress) {
-                            // Prefer 192.168.43.1 or similar common hotspot IPs
                             if (host.startsWith("192.168.43.") || host.startsWith("172.20.")) return host
                         }
                     }
@@ -91,7 +89,7 @@ object DeviceScanner {
 
                         if (isReachable) {
                             val device = ConnectedDevice(
-                                id = ip, // Using IP as identifier since MAC is inaccessible
+                                id = ip, // Using IP as identifier since MAC is inaccessible, fallback for devices that do not have the companion app installed
                                 ipAddress = ip,
                                 hostname = "Device at .$i",
                                 isBlocked = false,
@@ -115,25 +113,6 @@ object DeviceScanner {
                 true
             }
         } catch (e: Exception) { false }
-    }
-
-    fun getHotspotSsid(context: Context): String? {
-        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager ?: return null
-        return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val method = wifiManager.javaClass.getMethod("getSoftApConfiguration")
-                val config = method.invoke(wifiManager)
-                val ssidMethod = config?.javaClass?.getMethod("getSsid")
-                (ssidMethod?.invoke(config) as? String)?.trim('\"')
-            } else {
-                val method = wifiManager.javaClass.getMethod("getWifiApConfiguration")
-                val config = method.invoke(wifiManager)
-                config?.toString()?.let { configString ->
-                    val regex = Regex("ssid=(.*?)(?:,|\$)", RegexOption.IGNORE_CASE)
-                    regex.find(configString)?.groupValues?.getOrNull(1)?.trim('\"')
-                }
-            }
-        } catch (e: Exception) { null }
     }
 
     fun isHotspotEnabled(context: Context): Boolean {

@@ -10,17 +10,17 @@ import androidx.room.PrimaryKey
     foreignKeys = [
         ForeignKey(
             entity = DeviceEntity::class,
-            parentColumns = ["macAddress"],
-            childColumns = ["deviceMac"],
+            parentColumns = ["deviceId"],
+            childColumns = ["deviceId"],
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index(value = ["deviceMac"])]
+    indices = [Index(value = ["deviceId"])]
 )
 data class UsageLogEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val deviceMac: String,
+    val deviceId: String,
     val usageMb: Float,
     val timestamp: Long = System.currentTimeMillis()
 )

@@ -74,7 +74,6 @@ fun HostwatchApp(
     Scaffold(
         topBar = {
             TopStatusBar(
-                ssid = uiState.ssid,
                 isHotspotEnabled = uiState.isHotspotEnabled,
                 connectedCount = uiState.connectedCount,
                 isScanning = uiState.isScanning,

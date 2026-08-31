@@ -13,7 +13,7 @@ import com.example.fyp_hotspot_mobility.data.local.entity.UsageLogEntity
         DeviceEntity::class,
         UsageLogEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

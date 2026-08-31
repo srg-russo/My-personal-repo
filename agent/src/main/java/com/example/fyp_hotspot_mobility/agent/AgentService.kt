@@ -267,7 +267,7 @@ class AgentService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Hostwatch Agent")
             .setContentText(content)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.mipmap.ic_launcher)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .build()
