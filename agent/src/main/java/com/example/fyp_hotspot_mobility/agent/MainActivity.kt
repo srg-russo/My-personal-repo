@@ -64,12 +64,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun checkPermissionsAndSetup() {
-        val permissions = mutableListOf(Manifest.permission.ACCESS_FINE_LOCATION)
+        val permissions = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions.add(Manifest.permission.POST_NOTIFICATIONS)
         }
 
-        if (permissions.all { ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED }) {
+        if (permissions.isEmpty() || permissions.all { ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED }) {
             setupAgent()
         } else {
             requestPermissionLauncher.launch(permissions.toTypedArray())

@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.update
 class HotspotViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = DeviceRepository(application)
     private val database = AppDatabase.getDatabase(application)
-    private val dnsProxy = DnsProxyServer(repository)
 
     private val _uiState = MutableStateFlow(HotspotUiState())
     val uiState: StateFlow<HotspotUiState> = _uiState.asStateFlow()
@@ -134,11 +133,6 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
                     refreshUsageAndCheckLimits()
                 }
 
-                if (isEnabled) {
-                    dnsProxy.start()
-                } else {
-                    dnsProxy.stop()
-                }
                 delay(3000) // Track every 3 seconds
             }
         }
@@ -309,7 +303,7 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
                         val address = java.net.InetAddress.getByName(ip)
                         val packet = java.net.DatagramPacket(data, data.size, address, 8889)
                         
-                        // Send 10 times to account for UDP packet loss and potential VPN interference
+                        // Send multiple times to account for UDP packet loss and potential VPN interference
                         repeat(10) {
                             socket.send(packet)
                             delay(150)
