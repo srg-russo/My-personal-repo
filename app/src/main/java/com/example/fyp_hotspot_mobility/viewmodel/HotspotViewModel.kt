@@ -76,7 +76,6 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
                         }
                     }
                 } catch (e: Exception) {
-                    android.util.Log.e("HotspotViewModel", "Agent Listener error, restarting...", e)
                     delay(2000)
                 } finally {
                     socket?.close()
@@ -119,7 +118,6 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
                 val isEnabled = DeviceScanner.isHotspotEnabled(getApplication())
                 
                 if (wasEnabled && !isEnabled) {
-                    android.util.Log.d("HotspotViewModel", "Hotspot turned off, archiving and resetting usage")
                     repository.archiveAndResetUsage()
                 }
                 wasEnabled = isEnabled
@@ -156,7 +154,6 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
 
             // Automatically block devices that just exceeded their limit
             newlyExceededDevices.forEach { device ->
-                android.util.Log.d("HotspotViewModel", "Auto-blocking ${device.hostname} - Exceeded limit (${device.usageMb}/${device.dataLimitMb} MB)")
                 blockDevice(device.id)
             }
 
@@ -273,7 +270,6 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
 
             val device = _uiState.value.devices.find { it.id == id }
             if (device != null && device.dataLimitMb != null && device.usageMb > device.dataLimitMb) {
-                android.util.Log.d("HotspotViewModel", "Removing limit for $id upon manual unblock")
                 repository.setDataLimit(id, null)
                 updateDeviceState(id) { it.copy(isBlocked = false, dataLimitMb = null) }
             } else {
@@ -293,8 +289,7 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
             if (ip == null) {
                 ip = _uiState.value.devices.find { it.id == deviceId }?.ipAddress
             }
-            
-            android.util.Log.d("HotspotViewModel", "Attempting to send $command to $deviceId at IP: $ip")
+
             
             if (ip != null) {
                 try {
@@ -308,7 +303,6 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
                             socket.send(packet)
                             delay(150)
                         }
-                        android.util.Log.d("HotspotViewModel", "Sent $command to Agent at $ip")
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("HotspotViewModel", "Failed to send command to Agent", e)
@@ -372,6 +366,5 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
 
     override fun onCleared() {
         super.onCleared()
-        dnsProxy.stop()
     }
 }

@@ -14,7 +14,6 @@ class WifiStateReceiver : BroadcastReceiver() {
             
             when (state) {
                 WifiManager.WIFI_STATE_ENABLED -> {
-                    Log.d("WifiStateReceiver", "Wi-Fi Toggled ON. Starting Agent Service...")
                     val serviceIntent = Intent(context, AgentService::class.java)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         context.startForegroundService(serviceIntent)
@@ -23,7 +22,6 @@ class WifiStateReceiver : BroadcastReceiver() {
                     }
                 }
                 WifiManager.WIFI_STATE_DISABLED -> {
-                    Log.d("WifiStateReceiver", "Wi-Fi Toggled OFF. Stopping Agent Service...")
                     val serviceIntent = Intent(context, AgentService::class.java)
                     context.stopService(serviceIntent)
                 }

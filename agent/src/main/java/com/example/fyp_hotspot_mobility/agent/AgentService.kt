@@ -82,14 +82,12 @@ class AgentService : Service() {
                         stopVpn()
                     }
                 } else {
-                    Log.d("AgentService", "No Gateway IP detected yet")
                     failureCount++
                     stopVpn()
                 }
 
                 // stop the service if no Hotspot connection is found within 2 minutes
                 if (failureCount >= 12) {
-                    Log.d("AgentService", "Hostwatch not found. Stopping service to save battery.")
                     stopVpn()
                     stopSelf()
                     break
@@ -107,7 +105,6 @@ class AgentService : Service() {
         if (dhcp != null && dhcp.gateway != 0) {
             val gateway = Formatter.formatIpAddress(dhcp.gateway)
             if (gateway != "0.0.0.0") {
-                Log.d("AgentService", "Gateway from DHCP: $gateway")
                 return gateway
             }
         }
@@ -122,7 +119,6 @@ class AgentService : Service() {
             val linkProps = cm.getLinkProperties(wifiNetwork)
             val gatewayRoute = linkProps?.routes?.firstOrNull { it.isDefaultRoute }?.gateway?.hostAddress
             if (gatewayRoute != null) {
-                Log.d("AgentService", "Gateway from Routes: $gatewayRoute")
                 return gatewayRoute
             }
             
@@ -134,7 +130,6 @@ class AgentService : Service() {
             
             if (ipv4Addr != null) {
                 val gateway = ipv4Addr.substringBeforeLast(".") + ".1"
-                Log.d("AgentService", "Gateway from Subnet Fallback: $gateway")
                 return gateway
             }
         }
@@ -225,7 +220,6 @@ class AgentService : Service() {
                     if (packet.length == 0) continue
                     
                     val command = String(packet.data, 0, packet.length).trim()
-                    Log.d("AgentService", "Received command: $command")
 
                     when (command) {
                         "BLOCK" -> {

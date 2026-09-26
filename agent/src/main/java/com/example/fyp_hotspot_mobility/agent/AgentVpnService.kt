@@ -32,7 +32,6 @@ class AgentVpnService : VpnService() {
                 .setBlocking(true)      // Ensure traffic is blocked
             
             vpnInterface = builder.establish()
-            Log.d("AgentVpnService", "VPN Started - Traffic blocked")
             if (vpnInterface == null) {
                 Log.e("AgentVpnService", "Failed to establish VPN interface - User might have denied permission")
             }
@@ -45,7 +44,6 @@ class AgentVpnService : VpnService() {
         vpnInterface?.close()
         vpnInterface = null
         stopSelf()
-        Log.d("AgentVpnService", "VPN Stopped - Traffic restored")
     }
 
     override fun onDestroy() {

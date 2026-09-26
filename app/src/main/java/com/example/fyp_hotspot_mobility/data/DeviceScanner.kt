@@ -59,8 +59,6 @@ object DeviceScanner {
     ) = coroutineScope {
         val localIp = getHotspotLocalIp() ?: "192.168.43.1"
         val subnetPrefix = localIp.substringBeforeLast(".") + "."
-        
-        android.util.Log.d(TAG, "Scanning using localIp: $localIp, Subnet: $subnetPrefix*")
 
         // Scan the detected subnet for any devices
         val scanSemaphore = kotlinx.coroutines.sync.Semaphore(100) 
